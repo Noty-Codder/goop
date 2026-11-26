@@ -13,6 +13,7 @@ RUN go generate .
 RUN go run setup_ntgcalls.go
 
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o main .
+RUN mkdir -p /app/assets
 
 FROM alpine:3.23 AS runtime
 
