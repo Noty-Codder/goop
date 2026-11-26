@@ -1,0 +1,177 @@
+{
+  "name": "IstkharMusic",
+  "description": "IstkharMusic - premium Telegram music bot.",
+  "repository": "https://github.com/TEAM-ISTKHAR/IstkharMusic",
+  "keywords": [
+    "telegram",
+    "music",
+    "bot",
+    "go"
+  ],
+  "stack": "container",
+  "env": {
+    "API_ID": {
+      "description": "Your Telegram API ID.",
+      "required": true
+    },
+    "API_HASH": {
+      "description": "Your Telegram API hash.",
+      "required": true
+    },
+    "TOKEN": {
+      "description": "Your Telegram bot token.",
+      "required": true
+    },
+    "MONGO_URI": {
+      "description": "Your MongoDB connection string.",
+      "required": true
+    },
+    "OWNER_ID": {
+      "description": "The user ID of the bot owner.",
+      "required": true
+    },
+    "LOGGER_ID": {
+      "description": "The group ID for the bot's logs.",
+      "required": true
+    },
+    "SESSION_TYPE": {
+      "description": "The session type (pyrogram, telethon, or gogram).",
+      "required": true,
+      "value": "pyrogram"
+    },
+    "MAX_FILE_SIZE": {
+      "description": "The maximum file size for downloads (in bytes).",
+      "required": false,
+      "value": "524288000"
+    },
+    "STRING1": {
+      "description": "Pyrogram/Telethon/Gogram session string.",
+      "required": true
+    },
+    "STRING2": {
+      "description": "Pyrogram/Telethon/Gogram session string.",
+      "required": false
+    },
+    "STRING3": {
+      "description": "Pyrogram/Telethon/Gogram session string.",
+      "required": false
+    },
+    "STRING4": {
+      "description": "Pyrogram/Telethon/Gogram session string.",
+      "required": false
+    },
+    "STRING5": {
+      "description": "Pyrogram/Telethon/Gogram session string.",
+      "required": false
+    },
+    "STRING6": {
+      "description": "Pyrogram/Telethon/Gogram session string.",
+      "required": false
+    },
+    "STRING7": {
+      "description": "Pyrogram/Telethon/Gogram session string.",
+      "required": false
+    },
+    "STRING8": {
+      "description": "Pyrogram/Telethon/Gogram session string.",
+      "required": false
+    },
+    "STRING9": {
+      "description": "Pyrogram/Telethon/Gogram session string.",
+      "required": false
+    },
+    "STRING10": {
+      "description": "Pyrogram/Telethon/Gogram session string.",
+      "required": false
+    },
+    "API_URL": {
+      "description": "YouTube API url.",
+      "required": false,
+      "value": "https://www.riteshyt.in"
+    },
+    "API_KEY": {
+      "description": "YouTube API key.",
+      "required": true
+    },
+    "DEFAULT_SERVICE": {
+      "description": "Default music download service (e.g., youtube).",
+      "required": false,
+      "value": "youtube"
+    },
+    "DOWNLOADS_DIR": {
+      "description": "Directory to store downloads.",
+      "required": false
+    },
+    "DB_NAME": {
+      "description": "MongoDB database name.",
+      "required": false,
+      "value": "Anon"
+    },
+    "PROXY": {
+      "description": "Proxy URL for the bot.",
+      "required": false
+    },
+    "COOKIES_URL": {
+      "description": "URL to a cookies file for yt-dlp. (vai batbin.me)",
+      "required": false
+    },
+    "SUPPORT_GROUP": {
+      "description": "Support group link.",
+      "required": false,
+      "value": "https://t.me/betabot_support"
+    },
+    "SUPPORT_CHANNEL": {
+      "description": "Updates channel link.",
+      "required": false,
+      "value": "https://t.me/betabot_hub"
+    },
+    "SONG_DURATION_LIMIT": {
+      "description": "The maximum duration of a song in seconds.",
+      "required": false,
+      "value": "3600"
+    },
+    "DEVS": {
+      "description": "A space-separated list of developer user IDs.",
+      "required": false
+    },
+    "AUTO_BROADCAST": {
+      "description": "Daily report + promo at 7 AM IST.",
+      "required": false,
+      "value": "true"
+    },
+    "AUTO_BROADCAST_HOUR": {
+      "description": "Hour (IST) of the daily job.",
+      "required": false,
+      "value": "7"
+    },
+    "AUTO_PROMO": {
+      "description": "Send promo post to all chats in the daily job.",
+      "required": false,
+      "value": "true"
+    },
+    "PANEL_IMG": {
+      "description": "Now playing panel image (path or URL).",
+      "required": false,
+      "value": "assets/kavya.png"
+    },
+    "START_IMG": {
+      "description": "Start message image (path or URL).",
+      "required": false,
+      "value": "assets/kavya.png"
+    },
+    "PING_IMG": {
+      "description": "Ping image (path or URL).",
+      "required": false
+    },
+    "SUPPORT_IMG": {
+      "description": "Support image (path or URL).",
+      "required": false
+    }
+  },
+  "formation": {
+    "worker": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
+}
