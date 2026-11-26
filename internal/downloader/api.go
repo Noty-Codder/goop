@@ -54,19 +54,30 @@ var apiPatterns = map[string]*regexp.Regexp{
 func newApiData(query string) *apiData {
 	return &apiData{
 		Query:    strings.TrimSpace(query),
-		ApiUrl:   strings.TrimRight(config.ApiUrl, "/"),
-		APIKey:   config.ApiKey,
+		ApiUrl:   strings.TrimRight(strings.TrimSpace(config.ApiUrl), "/"),
+		APIKey:   strings.TrimSpace(config.ApiKey),
 		Patterns: apiPatterns,
 	}
 }
 
+func readErrorSnippet(r io.Reader) string {
+	if r == nil {
+		return ""
+	}
+	b, err := io.ReadAll(io.LimitReader(r, 200))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
 func (a *apiData) isValid() bool {
-	if a.Query == "" || a.ApiUrl == "" || a.APIKey == "" {
+	if a == nil || a.Query == "" || a.ApiUrl == "" || a.APIKey == "" {
 		return false
 	}
 
 	for _, pattern := range a.Patterns {
-		if pattern.MatchString(a.Query) {
+		if pattern != nil && pattern.MatchString(a.Query) {
 			return true
 		}
 	}
@@ -74,6 +85,9 @@ func (a *apiData) isValid() bool {
 }
 
 func (a *apiData) getInfo() (*utils.PlatformTracks, error) {
+	if a == nil {
+		return nil, errors.New("api client is nil")
+	}
 	if !a.isValid() {
 		return nil, errors.New("the provided URL is invalid or the platform is not supported")
 	}
@@ -83,12 +97,17 @@ func (a *apiData) getInfo() (*utils.PlatformTracks, error) {
 	if err != nil {
 		return nil, fmt.Errorf("the GetInfo request failed: %w", err)
 	}
-
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
+		snippet := readErrorSnippet(resp.Body)
+		if snippet != "" {
+			return nil, fmt.Errorf("unexpected status code while fetching info: %s (%s)", resp.Status, snippet)
+		}
 		return nil, fmt.Errorf("unexpected status code while fetching info: %s", resp.Status)
 	}
 
@@ -100,6 +119,9 @@ func (a *apiData) getInfo() (*utils.PlatformTracks, error) {
 }
 
 func (a *apiData) search() (*utils.PlatformTracks, error) {
+	if a == nil {
+		return nil, errors.New("api client is nil")
+	}
 	if a.isValid() {
 		return a.getInfo()
 	}
@@ -113,11 +135,17 @@ func (a *apiData) search() (*utils.PlatformTracks, error) {
 	if err != nil {
 		return nil, fmt.Errorf("the search request failed: %w", err)
 	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
+		snippet := readErrorSnippet(resp.Body)
+		if snippet != "" {
+			return nil, fmt.Errorf("unexpected status code during search: %s (%s)", resp.Status, snippet)
+		}
 		return nil, fmt.Errorf("unexpected status code during search: %s", resp.Status)
 	}
 
@@ -131,18 +159,30 @@ func (a *apiData) search() (*utils.PlatformTracks, error) {
 }
 
 func (a *apiData) getTrack() (*utils.TrackInfo, error) {
+	if a == nil {
+		return nil, errors.New("api client is nil")
+	}
+	if a.ApiUrl == "" || a.APIKey == "" {
+		return nil, errors.New("API URL or API key is not configured")
+	}
+
 	fullURL := fmt.Sprintf("%s/api/track?%s", a.ApiUrl, url.Values{"url": {a.Query}}.Encode())
 	resp, err := sendRequest(http.MethodGet, fullURL, nil, map[string]string{"X-API-Key": a.APIKey})
 	if err != nil {
 		slog.Warn("GetTrack request failed", "error", err)
 		return nil, fmt.Errorf("the GetTrack request failed: %w", err)
 	}
-
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
+		snippet := readErrorSnippet(resp.Body)
+		if snippet != "" {
+			return nil, fmt.Errorf("unexpected status code while fetching the track: %s (%s)", resp.Status, snippet)
+		}
 		return nil, fmt.Errorf("unexpected status code while fetching the track: %s", resp.Status)
 	}
 
@@ -156,8 +196,14 @@ func (a *apiData) getTrack() (*utils.TrackInfo, error) {
 }
 
 func (a *apiData) downloadTrack(info *utils.TrackInfo, video bool) (string, error) {
+	if a == nil {
+		return "", errors.New("api client is nil")
+	}
 	if a.ApiUrl == "" || a.APIKey == "" {
 		return "", errors.New("API URL or API key is not configured for API download")
+	}
+	if info == nil {
+		return "", errors.New("track info is nil")
 	}
 
 	filePath, err := processDownload(info)
@@ -174,11 +220,14 @@ func (a *apiData) downloadTrack(info *utils.TrackInfo, video bool) (string, erro
 
 // getRecommendations retrieves recommended tracks for a given track URL from the API gateway.
 func (a *apiData) getRecommendations(ctx context.Context, rawURL string) (*utils.PlatformTracks, error) {
+	if a == nil {
+		return nil, errors.New("api client is nil")
+	}
 	if a.ApiUrl == "" || a.APIKey == "" {
 		return nil, errors.New("API URL or API key is not configured")
 	}
 
-	urlToUse := rawURL
+	urlToUse := strings.TrimSpace(rawURL)
 	if urlToUse == "" {
 		urlToUse = a.Query
 	}
@@ -196,12 +245,17 @@ func (a *apiData) getRecommendations(ctx context.Context, rawURL string) (*utils
 	if err != nil {
 		return nil, fmt.Errorf("the GetRecommendations request failed: %w", err)
 	}
-
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
+		snippet := readErrorSnippet(resp.Body)
+		if snippet != "" {
+			return nil, fmt.Errorf("unexpected status code while fetching recommendations: %s (%s)", resp.Status, snippet)
+		}
 		return nil, fmt.Errorf("unexpected status code while fetching recommendations: %s", resp.Status)
 	}
 
