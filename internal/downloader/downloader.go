@@ -11,12 +11,16 @@ package downloader
 import (
 	"IstkharMusic/internal/disk"
 	"IstkharMusic/internal/utils"
+	"errors"
 	"fmt"
 
 	td "github.com/AshokShau/gotdbot"
 )
 
 func DlCachedTrack(cached *utils.PlayerCache, bot *td.Client, message *td.Message) (path string, err error) {
+	if cached == nil {
+		return "", errors.New("cached track is nil")
+	}
 	if cached.Platform == utils.DirectLink {
 		return cached.URL, nil
 	}
