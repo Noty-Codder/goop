@@ -12,9 +12,11 @@ import (
 	"IstkharMusic/internal/cache"
 	"IstkharMusic/internal/config"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -48,21 +50,32 @@ var Instance *Database
 
 // InitDatabase initializes the database connection and sets up the global instance.
 func InitDatabase() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	uri := strings.TrimSpace(config.MongoUri)
+	if uri == "" {
+		return errors.New("MONGO_URI is empty")
+	}
+
+	dbName := strings.TrimSpace(config.DbName)
+	if dbName == "" {
+		dbName = "Anon"
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	opts := options.Client().ApplyURI(config.MongoUri).
-		SetMinPoolSize(10).
+	opts := options.Client().ApplyURI(uri).
+		SetMinPoolSize(2).
 		SetMaxConnecting(10).
 		SetMaxConnIdleTime(10 * time.Minute).
-		SetConnectTimeout(20 * time.Second)
+		SetConnectTimeout(25 * time.Second).
+		SetServerSelectionTimeout(25 * time.Second)
 
 	client, err := mongo.Connect(opts)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
 
-	db := client.Database(config.DbName)
+	db := client.Database(dbName)
 	Instance = &Database{
 		client:      client,
 		DB:          db,
@@ -85,11 +98,12 @@ func InitDatabase() error {
 	}
 
 	if err := client.Ping(ctx, nil); err != nil {
-		return fmt.Errorf("failed to ping database: %w", err)
+		_ = client.Disconnect(context.Background())
+		return fmt.Errorf("failed to ping MongoDB: %w", err)
 	}
 
 	Instance.EnsureEventIndex()
-	slog.Info("[DB] The database connection has been successfully established.")
+	slog.Info("[DB] The database connection has been successfully established.", "db", dbName)
 	return nil
 }
 
@@ -99,6 +113,9 @@ func toKey(id int64) string {
 
 // Close gracefully closes the database connection.
 func (db *Database) Close() error {
+	if db == nil || db.client == nil {
+		return nil
+	}
 	ctx, cancel := db.ctx()
 	defer cancel()
 
