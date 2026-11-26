@@ -12,6 +12,7 @@ import (
 	"IstkharMusic/internal/config"
 	"IstkharMusic/internal/utils"
 	"context"
+	"errors"
 )
 
 // service defines a standard interface for interacting with various music services.
@@ -65,33 +66,45 @@ func NewDlWrapper(query string) *DlWrapper {
 
 // IsValid checks if the underlying service can handle the query.
 func (d *DlWrapper) IsValid() bool {
-	return d.service != nil && d.service.isValid()
+	return d != nil && d.service != nil && d.service.isValid()
 }
 
 // GetInfo retrieves metadata by delegating the call to the wrapped service.
 func (d *DlWrapper) GetInfo() (*utils.PlatformTracks, error) {
+	if d == nil || d.service == nil {
+		return nil, errors.New("downloader service is not initialized")
+	}
 	return d.service.getInfo()
 }
 
 // Search performs a search by delegating the call to the wrapped service.
 func (d *DlWrapper) Search() (*utils.PlatformTracks, error) {
+	if d == nil || d.service == nil {
+		return nil, errors.New("downloader service is not initialized")
+	}
 	return d.service.search()
 }
 
 // GetTrack retrieves detailed track information by delegating the call to the wrapped service.
 func (d *DlWrapper) GetTrack() (*utils.TrackInfo, error) {
+	if d == nil || d.service == nil {
+		return nil, errors.New("downloader service is not initialized")
+	}
 	return d.service.getTrack()
 }
 
 // DownloadTrack downloads a track by delegating the call to the wrapped service.
 // It returns the file path of the downloaded track or an error if the download fails.
 func (d *DlWrapper) DownloadTrack(info *utils.TrackInfo, video bool) (string, error) {
+	if d == nil || d.service == nil {
+		return "", errors.New("downloader service is not initialized")
+	}
 	return d.service.downloadTrack(info, video)
 }
 
 // GetRecommendations retrieves recommended tracks by delegating the call to the wrapped service.
 func (d *DlWrapper) GetRecommendations(ctx context.Context, url string) (*utils.PlatformTracks, error) {
-	if d.service == nil {
+	if d == nil || d.service == nil {
 		return nil, nil
 	}
 	return d.service.getRecommendations(ctx, url)
