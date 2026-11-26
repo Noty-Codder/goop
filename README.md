@@ -2,7 +2,7 @@
 <p align="center">Premium Telegram music bot — Go + TDLib + NTgCalls</p>
 
 <p align="center">
-  <a href="https://heroku.com/deploy?template=https://github.com/TEAM-ISTKHAR/IstkharMusic"><img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy to Heroku"></a>
+  <a href="https://heroku.com/deploy?template=https://github.com/Noty-Codder/goop"><img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy to Heroku"></a>
   <a href="https://railway.app/new"><img src="https://railway.app/button.svg" alt="Deploy on Railway"></a>
 </p>
 
