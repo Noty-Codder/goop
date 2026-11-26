@@ -27,6 +27,9 @@ var (
 )
 
 func processDownload(track *utils.TrackInfo) (string, error) {
+	if track == nil {
+		return "", errors.New("track info is nil")
+	}
 	if track.CdnURL == "" {
 		return "", errMissingCDNURL
 	}
