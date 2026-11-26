@@ -12,12 +12,11 @@ import (
 	"IstkharMusic/internal/config"
 	"IstkharMusic/internal/utils"
 	"context"
-	"log/slog"
-
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -157,21 +156,16 @@ func (a *apiData) getTrack() (*utils.TrackInfo, error) {
 }
 
 func (a *apiData) downloadTrack(info *utils.TrackInfo, video bool) (string, error) {
-	// if the track is from YouTube and video:true
-	yt := newYouTubeData(a.Query)
-	if info.Platform == utils.YouTube && video {
-		return yt.downloadTrack(info, video)
+	if a.ApiUrl == "" || a.APIKey == "" {
+		return "", errors.New("API URL or API key is not configured for API download")
 	}
 
 	filePath, err := processDownload(info)
 	if err != nil {
-		if info.Platform == utils.YouTube {
-			return yt.downloadTrack(info, video)
-		}
-		return "", fmt.Errorf("the download process failed: %w", err)
+		return "", fmt.Errorf("the API download process failed: %w", err)
 	}
 
-	if strings.Contains(a.ApiUrl, filePath) {
+	if a.ApiUrl != "" && strings.Contains(filePath, a.ApiUrl) {
 		return downloadFile(filePath, "", false)
 	}
 
