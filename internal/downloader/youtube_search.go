@@ -111,7 +111,6 @@ var ytProfiles = []ytClientProfile{
 		UserAgent:     "com.google.android.apps.youtube.music/7.03.51 (Linux; U; Android 14) gzip",
 	},
 	{
-
 		ClientName:    "WEB_EMBEDDED_PLAYER",
 		ClientVersion: "1.20250101.01.00",
 		ClientID:      "56",
@@ -231,7 +230,7 @@ func ytRequest(ctx context.Context, path string, extraFields map[string]any, acc
 		}
 
 		endpoint := ytBaseURL + path + "?key=" + ytAPIKey
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(body))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 		if err != nil {
 			return nil, fmt.Errorf("build request: %w", err)
 		}
@@ -286,8 +285,11 @@ func ytPost(ctx context.Context, path string, extraFields map[string]any) (map[s
 }
 
 func searchYouTube(query string, limit int, parentContext ...context.Context) ([]utils.GetUrlTrack, error) {
+	if limit <= 0 {
+		limit = 5
+	}
 	parent := context.Background()
-	if len(parentContext) > 0 {
+	if len(parentContext) > 0 && parentContext[0] != nil {
 		parent = parentContext[0]
 	}
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
@@ -317,6 +319,9 @@ func searchYouTube(query string, limit int, parentContext ...context.Context) ([
 }
 
 func youtubeSearchResponseError(data map[string]any) error {
+	if data == nil {
+		return nil
+	}
 	stack := []any{data["contents"], data["alerts"]}
 	for len(stack) > 0 {
 		node := stack[len(stack)-1]
@@ -330,14 +335,18 @@ func youtubeSearchResponseError(data map[string]any) error {
 				if !ok {
 					continue
 				}
-				copy := strings.ToLower(strings.Join([]string{youtubeMessageText(message["title"]), youtubeMessageText(message["bodyText"]), youtubeMessageText(message["text"])}, " "))
+				msgCopy := strings.ToLower(strings.Join([]string{
+					youtubeMessageText(message["title"]),
+					youtubeMessageText(message["bodyText"]),
+					youtubeMessageText(message["text"]),
+				}, " "))
 				switch {
-				case strings.Contains(copy, "confirm your age"), strings.Contains(copy, "age-restricted"), strings.Contains(copy, "age restricted"):
+				case strings.Contains(msgCopy, "confirm your age"), strings.Contains(msgCopy, "age-restricted"), strings.Contains(msgCopy, "age restricted"):
 					return errYouTubeSearchAgeRequired
 				case dig(message, "ctaButton", "buttonRenderer", "navigationEndpoint", "signInEndpoint") != nil,
-					strings.Contains(copy, "sign in"), strings.Contains(copy, "sign-in"):
+					strings.Contains(msgCopy, "sign in"), strings.Contains(msgCopy, "sign-in"):
 					return errYouTubeSearchSignInRequired
-				case strings.Contains(copy, "no results found"), strings.Contains(copy, "no results for"), strings.TrimSpace(copy) == "no results":
+				case strings.Contains(msgCopy, "no results found"), strings.Contains(msgCopy, "no results for"), strings.TrimSpace(msgCopy) == "no results":
 					return errYouTubeSearchNoResults
 				}
 			}
@@ -366,6 +375,9 @@ func youtubeMessageText(node any) string {
 }
 
 func parseResults(node any, tracks *[]utils.GetUrlTrack, limit int) {
+	if tracks == nil || limit <= 0 {
+		return
+	}
 	stack := []any{node}
 	for len(stack) > 0 && len(*tracks) < limit {
 		curr := stack[len(stack)-1]
@@ -428,6 +440,9 @@ func isLiveNow(vr map[string]any) bool {
 
 // getYouTubeTitleFromOEmbed fetches the video title using YouTube's oEmbed API.
 func getYouTubeTitleFromOEmbed(videoID string) (string, error) {
+	if videoID == "" {
+		return "", errors.New("videoID is empty")
+	}
 	apiURL := fmt.Sprintf("https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=%s&format=json", videoID)
 
 	resp, err := client.Get(apiURL)
@@ -453,7 +468,6 @@ func getYouTubeTitleFromOEmbed(videoID string) (string, error) {
 
 	return data.Title, nil
 }
-
 func getYouTubeVideo(ctx context.Context, videoID string) (*utils.PlatformTracks, error) {
 	resp, err := ytRequest(ctx, "/youtubei/v1/player", map[string]any{"videoId": videoID}, func(data map[string]any) bool {
 		return digStr(data, "videoDetails", "videoId") != ""
@@ -473,7 +487,7 @@ func getYouTubePlaylist(ctx context.Context, playlistID string) (*utils.Platform
 	var tracks *utils.PlatformTracks
 	_, err := ytRequest(ctx, "/youtubei/v1/browse", map[string]any{"browseId": "VL" + playlistID}, func(data map[string]any) bool {
 		tracks = buildTrackList(extractPlaylistVideos(data), mapYTVideo)
-		return len(tracks.Results) > 0
+		return tracks != nil && len(tracks.Results) > 0
 	})
 	if err != nil {
 		return nil, err
@@ -496,6 +510,9 @@ func GetYouTubeMixPlaylist(ctx context.Context, playlistID string) (*utils.Platf
 func buildTrackList(videos []map[string]any, mapper func(map[string]any) utils.GetUrlTrack) *utils.PlatformTracks {
 	out := make([]utils.GetUrlTrack, 0, len(videos))
 	for _, v := range videos {
+		if mapper == nil {
+			continue
+		}
 		if t := mapper(v); t.Id != "" {
 			out = append(out, t)
 		}
@@ -545,6 +562,9 @@ func mapPlayerToTrack(src map[string]any) utils.GetUrlTrack {
 }
 
 func extractPlaylistVideos(src map[string]any) []map[string]any {
+	if src == nil {
+		return nil
+	}
 	var out []map[string]any
 	var visit func(any)
 	visit = func(node any) {
@@ -601,6 +621,9 @@ func normalizePlaylistLockup(video map[string]any) map[string]any {
 }
 
 func extractMixPlaylistVideos(src map[string]any) []map[string]any {
+	if src == nil {
+		return nil
+	}
 	contents := digArray(src,
 		"contents",
 		"twoColumnWatchNextResults",
@@ -689,6 +712,9 @@ func parseYTDuration(v map[string]any) int32 {
 
 // parseDuration handles "H:MM:SS" / "M:SS" / "SS" colon-separated strings.
 func parseDuration(s string) int32 {
+	if strings.TrimSpace(s) == "" {
+		return 0
+	}
 	parts := strings.Split(s, ":")
 	var total, mul int32 = 0, 1
 	for _, part := range slices.Backward(parts) {
@@ -700,10 +726,13 @@ func parseDuration(s string) int32 {
 
 // parseTimeToSeconds is like parseDuration but uses strconv and returns 0 on any error.
 func parseTimeToSeconds(s string) int32 {
+	if strings.TrimSpace(s) == "" {
+		return 0
+	}
 	parts := strings.Split(s, ":")
 	total := 0
 	for _, p := range parts {
-		n, err := strconv.Atoi(p)
+		n, err := strconv.Atoi(strings.TrimSpace(p))
 		if err != nil {
 			return 0
 		}
