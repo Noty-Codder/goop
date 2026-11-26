@@ -11,19 +11,13 @@ package downloader
 import (
 	"IstkharMusic/internal/config"
 	"IstkharMusic/internal/utils"
-	"time"
-
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
-	"math/big"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // youTubeData provides an interface for fetching track and playlist information from YouTube.
@@ -162,122 +156,26 @@ func (y *youTubeData) getTrack() (*utils.TrackInfo, error) {
 	return trackInfo, nil
 }
 
-// downloadTrack handles the download of a track from YouTube.
+// downloadTrack handles the download of a track from YouTube strictly via API / CDN without yt-dlp or cookies.
 func (y *youTubeData) downloadTrack(info *utils.TrackInfo, video bool) (string, error) {
+	if info == nil {
+		return "", errors.New("track info is nil")
+	}
+
 	if !video && info.CdnURL != "" {
 		return info.CdnURL, nil
 	}
 
-	if !video && y.ApiUrl != "" && y.APIKey != "" {
-		if filePath, err := y.downloadWithApi(info.Id, video); err == nil {
-			return filePath, nil
-		}
+	if y.ApiUrl == "" || y.APIKey == "" {
+		return "", errors.New("API_URL or API_KEY is not configured; yt-dlp and cookies are disabled")
 	}
 
-	return y.downloadWithYtDlp(info.Id, video)
-}
-
-// buildYtdlpParams constructs the command-line parameters for yt-dlp to download media.
-func (y *youTubeData) buildYtdlpParams(videoID string, video bool) ([]string, string) {
-	outputTemplate := filepath.Join(config.DownloadsDir, "%(id)s.%(ext)s")
-	var cookieFile string
-
-	params := []string{
-		"yt-dlp",
-		"--no-warnings",
-		"--quiet",
-		"--geo-bypass",
-		"--retries", "2",
-		"--continue",
-		"--no-part",
-		"--concurrent-fragments", "3",
-		"--socket-timeout", "10",
-		"--throttled-rate", "100K",
-		"--retry-sleep", "1",
-		"--no-write-thumbnail",
-		"--no-write-info-json",
-		"--no-embed-metadata",
-		"--no-embed-chapters",
-		"--no-embed-subs",
-		"--extractor-args", "youtube:player_js_version=actual",
-		"-o", outputTemplate,
-	}
-
-	if video {
-		formatSelector := "bestvideo[height<=720]+bestaudio/best[height<=720]"
-		params = append(params, "-f", formatSelector, "--merge-output-format", "mp4")
-	} else {
-		params = append(params, "-f", "bestaudio[ext=m4a]/bestaudio")
-	}
-
-	cookieFile = y.getCookieFile()
-	if cookieFile != "" {
-		params = append(params, "--cookies", cookieFile)
-	} else if config.Proxy != "" {
-		params = append(params, "--proxy", config.Proxy)
-	}
-
-	videoURL := "https://www.youtube.com/watch?v=" + videoID
-	params = append(params, videoURL, "--print", "after_move:filepath")
-
-	return params, cookieFile
-}
-
-// downloadWithYtDlp downloads media from YouTube using the yt-dlp command-line tool.
-func (y *youTubeData) downloadWithYtDlp(videoID string, video bool) (string, error) {
-	if videoID == "" {
-		return "", errors.New("videoID is empty")
-	}
-
-	ytdlpParams, cookieFile := y.buildYtdlpParams(videoID, video)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, ytdlpParams[0], ytdlpParams[1:]...)
-
-	output, err := cmd.Output()
+	filePath, err := y.downloadWithApi(info.Id, video)
 	if err != nil {
-		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			stderr := string(exitErr.Stderr)
-			if cookieFile != "" && strings.Contains(stderr, "Sign in to confirm you're not a bot") {
-				_ = os.Remove(cookieFile)
-			}
-			return "", fmt.Errorf("yt-dlp failed with exit code %d: %s", exitErr.ExitCode(), stderr)
-		}
-
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return "", fmt.Errorf("yt-dlp timed out for video ID: %s", videoID)
-		}
-
-		return "", fmt.Errorf("an unexpected error occurred while downloading %s: %w", videoID, err)
+		return "", fmt.Errorf("API download failed for %s: %w", info.Id, err)
 	}
 
-	downloadedPathStr := strings.TrimSpace(string(output))
-	if downloadedPathStr == "" {
-		return "", fmt.Errorf("no output path was returned for %s", videoID)
-	}
-
-	if _, err := os.Stat(downloadedPathStr); os.IsNotExist(err) {
-		return "", fmt.Errorf("the file was not found at the reported path: %s", downloadedPathStr)
-	}
-
-	return downloadedPathStr, nil
-}
-
-// getCookieFile retrieves the path to a cookie file from the configured list.
-func (y *youTubeData) getCookieFile() string {
-	cookiesPath := config.CookiesPath
-	if len(cookiesPath) == 0 {
-		return ""
-	}
-	n, err := rand.Int(rand.Reader, big.NewInt(int64(len(cookiesPath))))
-	if err != nil {
-		slog.Info("Could not generate a random number", "error", err)
-		return cookiesPath[0]
-	}
-
-	return cookiesPath[n.Int64()]
+	return filePath, nil
 }
 
 // downloadWithApi downloads a track using the external API.
